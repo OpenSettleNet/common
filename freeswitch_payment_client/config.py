@@ -27,7 +27,7 @@ args = parser.parse_args()
 
 
 settings = Dynaconf(
-    envvar_prefix="REDSWITCH",
+    envvar_prefix="FREESWITCH_PAYMENT_CLIENT",
     settings_files=['settings.yaml', '.secrets.yaml'],
     **vars(args)
 )
