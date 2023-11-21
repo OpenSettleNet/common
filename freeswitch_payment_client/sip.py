@@ -1,12 +1,11 @@
 import abc
 import functools
 import inspect
-import os
 import re
 import secrets
 import socket
 import urllib.parse
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
 import attrs
 import xmltodict
@@ -79,7 +78,7 @@ class SIPURI:
             attrs.validators.and_(attrs.validators.ge(0), attrs.validators.le(65535))
         ),
     )
-    parameters: List[str] = []
+    parameters: Set[str] = set()
 
     def __str__(self) -> str:
         uri = self.domain
@@ -101,6 +100,9 @@ class SIPURI:
     def get_user(self) -> Optional[str]:
         return self.user
 
+    def add_parameter(self, parameter: str):
+        self.parameters.add(parameter)
+
     @classmethod
     def from_uri(cls, uri: str) -> "SIPURI":
         (user, domain, port, packed_parameters) = cls.PATTERN.match(uri).groups()
@@ -108,11 +110,11 @@ class SIPURI:
             domain=domain,
             user=user,
             port=int(port) if port is not None else None,
-            parameters=[
+            parameters={
                 parameter for parameter in packed_parameters.split(";") if parameter
-            ]
+            }
             if packed_parameters
-            else [],
+            else set(),
         )
 
 
@@ -121,7 +123,7 @@ class Address:
     PATTERN = re.compile(r"""(?:"(.+)"|.+)\s+<sip:([^>]+)>(;.*)?""")
     sip_uri: SIPURI
     display_name: Optional[str] = None
-    parameters: List[str] = []
+    parameters: Set[str] = []
 
     def __str__(self) -> str:
         address = f"<{self.sip_uri}>"
@@ -131,6 +133,12 @@ class Address:
             parameters = ";".join(self.parameters)
             address = f"{address};{parameters}"
         return address
+
+    def add_parameter(self, parameter: str):
+        self.parameters.add(parameter)
+
+    def add_parameter_to_uri(self, parameter: str):
+        self.sip_uri.add_parameter(parameter)
 
     @classmethod
     def from_address(cls, address: str) -> "Address":
@@ -143,11 +151,11 @@ class Address:
         return cls(
             display_name=display_name,
             sip_uri=SIPURI.from_uri(uri),
-            parameters=[
+            parameters={
                 parameter for parameter in packed_parameters.split(";") if parameter
-            ]
+            }
             if packed_parameters
-            else [],
+            else set(),
         )
 
 
@@ -197,7 +205,8 @@ class SIP(abc.ABC):
 
     @Header.header("Content-Length")
     def content_length_header(self) -> Optional[str]:
-        return str(len(self.body.encode("utf-8"))) if self.body is not None else "0"
+        body = self.get_body()
+        return str(len(body.encode("utf-8"))) if body is not None else "0"
 
     @Header.header("Content-Type")
     def content_type_header(self) -> Optional[str]:
@@ -258,14 +267,14 @@ class SIP(abc.ABC):
         )
 
     def get_start_line(self) -> str:
-        return f"{self.method()} {self.to_field} SIP/2.0"
+        return f"{self.method()} {self.to_field.sip_uri} SIP/2.0"
 
     def format(self) -> str:
         start_line = self.get_start_line()
         headers = self.format_headers()
         body = self.get_body()
         if body is not None:
-            return f"{start_line}\r\n{headers}\r\n{body}"
+            return f"{start_line}\r\n{headers}\r\n\r\n{body}"
         else:
             return f"{start_line}\r\n{headers}"
 
@@ -310,11 +319,11 @@ class SIP(abc.ABC):
         cls, event, call_id_override: Optional[str] = None, **kwargs
     ) -> "SIP":
         to_uri = SIPURI.from_uri(event.getHeader("variable_sip_to_uri"))
-        to_uri.parameters.append("UDP")
+        to_uri.add_parameter("UDP")
         from_uri = SIPURI(
             user=event.getHeader("variable_sip_from_user"),
             domain=utils.get_host_ip(),
-            parameters=["UDP"],
+            parameters={"UDP"},
         )
 
         return cls(
@@ -336,14 +345,14 @@ class SIP(abc.ABC):
                 sip_uri=SIPURI(
                     user="testcalls",
                     domain="10.10.0.4",
-                    parameters=["UDP"],
+                    parameters={"UDP"},
                 ),
             ),
             from_field=Address(
                 sip_uri=SIPURI(
                     user="0000000000",
                     domain=utils.get_host_ip(),
-                    parameters=["UDP"],
+                    parameters={"UDP"},
                 )
             ),
             call_id="61f282ea-c77a-123b-10b4-02420a0a0003",
@@ -362,16 +371,7 @@ class Subscribe(SIP):
         return "SUBSCRIBE"
 
     def get_body(self) -> Optional[str]:
-        return super().get_body() or (
-            f'<?xml version="1.0" encoding="UTF-8"?>\r\n'
-            f'<presence xmlns="urn:ietf:params:xml:ns:pidf" entity="{self.from_field}">\r\n'
-            f'<tuple id="sg89ae">\r\n'
-            f"<status>\r\n"
-            f"<basic>open</basic>\r\n"
-            f"</status>\r\n"
-            f"</tuple>\r\n"
-            f"</presence>\r\n"
-        )
+        return None
 
     @Header.header("Expires")
     def expires_header(self) -> str:
@@ -385,7 +385,9 @@ class Subscribe(SIP):
     def from_event(
         cls, event, call_id_override: Optional[str] = None, **kwargs
     ) -> "SIP":
-        return super().from_event(event, call_id_override, expires="3600", **kwargs)
+        packet = super().from_event(event, call_id_override, expires="3600", **kwargs)
+        packet.from_field.add_parameter("tag=1234")
+        return packet
 
 
 @attrs.define(auto_attribs=True, kw_only=True)
