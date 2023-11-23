@@ -19,7 +19,7 @@ from freeswitch_payment_client.config import settings
 
 class Header:
     @staticmethod
-    def header(name: str) -> Callable:
+    def header(name: str, priority: Optional[int] = None) -> Callable:
         def _header(method: Callable) -> Callable:
             method_returns = inspect.signature(method).return_annotation
             if method_returns != str and method_returns != Optional[str]:
@@ -39,17 +39,24 @@ class Header:
                 return return_value
 
             _method._header_name = name
+            _method._header_priority = priority
             return _method
 
         return _header
 
     @classmethod
     def _get_headers(cls, instance: object) -> Dict[str, Optional[str]]:
-        return {
-            header._header_name: header()
+        headers = [
+            header
             for (_, header) in inspect.getmembers(instance, predicate=inspect.ismethod)
             if getattr(header, "_header_name", None)
-        }
+        ]
+        headers.sort(
+            key=lambda header: header._header_priority
+            if header._header_priority is not None
+            else float("inf")
+        )
+        return {header._header_name: header() for header in headers}
 
     @classmethod
     def get_headers(cls, instance: object) -> Dict[str, str]:
@@ -78,7 +85,7 @@ class SIPURI:
             attrs.validators.and_(attrs.validators.ge(0), attrs.validators.le(65535))
         ),
     )
-    parameters: Set[str] = set()
+    parameters: Set[str] = attrs.field(factory=set)
 
     def __str__(self) -> str:
         uri = self.domain
@@ -89,6 +96,12 @@ class SIPURI:
         if self.parameters:
             parameters = ";".join(self.parameters)
             uri = f"{uri};{parameters}"
+        return f"sip:{uri}"
+
+    def for_start_line(self) -> str:
+        uri = self.domain
+        if self.user is not None:
+            uri = f"{urllib.parse.quote(self.user)}@{uri}"
         return f"sip:{uri}"
 
     def get_domain(self) -> str:
@@ -123,7 +136,7 @@ class Address:
     PATTERN = re.compile(r"""(?:"(.+)"|.+)\s+<sip:([^>]+)>(;.*)?""")
     sip_uri: SIPURI
     display_name: Optional[str] = None
-    parameters: Set[str] = []
+    parameters: Set[str] = attrs.field(factory=set)
 
     def __str__(self) -> str:
         address = f"<{self.sip_uri}>"
@@ -195,7 +208,7 @@ class SIP(abc.ABC):
     def accept_header(self) -> Optional[str]:
         return self.accept
 
-    @Header.header("Call-ID")
+    @Header.header("Call-ID", priority=4)
     def call_id_header(self) -> str:
         return self.call_id
 
@@ -205,14 +218,17 @@ class SIP(abc.ABC):
 
     @Header.header("Content-Length")
     def content_length_header(self) -> Optional[str]:
-        body = self.get_body()
-        return str(len(body.encode("utf-8"))) if body is not None else "0"
+        return (
+            str(len(self.get_body().encode("utf-8")))
+            if self.get_body() is not None
+            else "0"
+        )
 
     @Header.header("Content-Type")
     def content_type_header(self) -> Optional[str]:
         return "application/xml" if self.body is not None else None
 
-    @Header.header("CSeq")
+    @Header.header("CSeq", priority=3)
     def cseq_header(self) -> str:
         return f"{self.cseq} {self.method()}"
 
@@ -220,7 +236,7 @@ class SIP(abc.ABC):
     def event_header(self) -> str:
         return self.event
 
-    @Header.header("From")
+    @Header.header("From", priority=2)
     def from_header(self) -> str:
         return str(self.from_field)
 
@@ -228,7 +244,7 @@ class SIP(abc.ABC):
     def max_forwards_header(self) -> str:
         return self.max_forwards
 
-    @Header.header("To")
+    @Header.header("To", priority=1)
     def to_header(self) -> str:
         return (
             f"{self.to_field};{self.to_tag}"
@@ -236,7 +252,7 @@ class SIP(abc.ABC):
             else f"{self.to_field}"
         )
 
-    @Header.header("Via")
+    @Header.header("Via", priority=0)
     def via_header(self) -> str:
         return f"SIP/2.0/{self.transport_protocol} {self.get_src_ip()}:{self.get_src_port()}"
 
@@ -267,7 +283,7 @@ class SIP(abc.ABC):
         )
 
     def get_start_line(self) -> str:
-        return f"{self.method()} {self.to_field.sip_uri} SIP/2.0"
+        return f"{self.method()} {self.to_field.sip_uri.for_start_line()} SIP/2.0"
 
     def format(self) -> str:
         start_line = self.get_start_line()
@@ -276,7 +292,7 @@ class SIP(abc.ABC):
         if body is not None:
             return f"{start_line}\r\n{headers}\r\n\r\n{body}"
         else:
-            return f"{start_line}\r\n{headers}"
+            return f"{start_line}\r\n{headers}\r\n\r\n"
 
     def get_host_ip(self) -> str:
         return utils.get_host_ip()
@@ -373,6 +389,10 @@ class Subscribe(SIP):
     def get_body(self) -> Optional[str]:
         return None
 
+    @Header.header("Accept")
+    def accept_header(self) -> Optional[str]:
+        return "application/xml"
+
     @Header.header("Expires")
     def expires_header(self) -> str:
         return self.expires
@@ -385,15 +405,21 @@ class Subscribe(SIP):
     def from_event(
         cls, event, call_id_override: Optional[str] = None, **kwargs
     ) -> "SIP":
-        packet = super().from_event(event, call_id_override, expires="3600", **kwargs)
-        packet.from_field.add_parameter("tag=1234")
-        return packet
+        subscribe = super().from_event(
+            event, call_id_override, expires="3600", **kwargs
+        )
+        subscribe.from_field.add_parameter("tag=1234")  # despise this
+        return subscribe
 
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Publish(SIP):
     def method(self) -> str:
         return "PUBLISH"
+
+    @Header.header("Accept")
+    def accept_header(self) -> Optional[str]:
+        return "application/xml"
 
     def get_body(self) -> Optional[str]:
         return super().get_body() or self.gen_pidf_xml()
