@@ -5,7 +5,7 @@ import re
 import secrets
 import socket
 import urllib.parse
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, Optional, Set, Union
 
 import attrs
 import xmltodict
