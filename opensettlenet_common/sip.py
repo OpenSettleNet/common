@@ -13,8 +13,8 @@ from scapy.layers.inet import IP, UDP
 from scapy.packet import Raw
 from scapy.sendrecv import send
 
-from freeswitch_payment_client import utils
-from freeswitch_payment_client.config import settings
+from opensettlenet_common import utils
+from opensettlenet_common.config import settings
 
 
 class Header:
