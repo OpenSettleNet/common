@@ -1,0 +1,9 @@
+ACK sip:user2@there.com SIP/2.0
+Via: SIP/2.0/UDP here.com:5060;branch=z9hG4bKnashds8
+Max-Forwards: 70
+From: "User1" <sip:user1@here.com>;tag=1928301774
+To: <sip:user2@there.com>;tag=a6c85cf
+Call-ID: a84b4c76e66710
+CSeq: 314159 ACK
+Content-Length: 0
+

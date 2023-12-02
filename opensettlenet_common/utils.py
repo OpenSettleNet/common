@@ -15,7 +15,7 @@ def get_host_ip() -> str:
 
 def sip_headers_to_dict(packet) -> Dict[str, str]:
     # All SIP packets contain a double CRLF between the start line / headers & the body (even if it's empty)
-    preface, _ = packet.split("\r\n\r\n")
+    preface, *_ = packet.split("\r\n\r\n")
     # The start line & headers (if there are any) are all separated by CRLFs
     [_, *headers] = preface.split("\r\n")
     header_dict = {}
