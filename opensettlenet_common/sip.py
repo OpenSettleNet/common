@@ -5,14 +5,16 @@ import re
 import secrets
 import socket
 import urllib.parse
-from typing import Callable, Dict, Optional, Set, Union
+from typing import Callable, Dict, Optional, Set, Union, Type
 
 import attrs
 import xmltodict
+from pydantic import BaseConfig
 from scapy.layers.inet import IP, UDP  # type: ignore
 from scapy.packet import Raw  # type: ignore
 from scapy.sendrecv import send  # type: ignore
 
+import opensettlenet_common.validators
 from opensettlenet_common import utils
 from opensettlenet_common.config import settings
 
@@ -77,12 +79,12 @@ class SIPURI:
         r"(;.*)?$"  # Optional parameters
     )
 
-    domain: str
+    domain: str = attrs.field(validator=opensettlenet_common.validators.domain)
     user: Optional[str] = None
     port: Optional[int] = attrs.field(
         default=5060,
-        validator=attrs.validators.and_(
-            attrs.validators.ge(0), attrs.validators.le(65535)
+        validator=attrs.validators.optional(
+            attrs.validators.and_(attrs.validators.ge(0), attrs.validators.le(65535))
         ),
     )
     parameters: Set[str] = attrs.field(factory=set)
@@ -136,7 +138,7 @@ class SIPURI:
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Address:
-    PATTERN = re.compile(r"""(?:"(.+)"|.+)\s+<sip:([^>]+)>(;.*)?""")
+    PATTERN = re.compile(r"""(?:\s*|"(.+)"\s+|(.+))<sip:([^>]+)>(;.*)?""")
     sip_uri: SIPURI
     display_name: Optional[str] = None
     parameters: Set[str] = attrs.field(factory=set)
@@ -160,13 +162,20 @@ class Address:
     def from_address(cls, address: str) -> "Address":
         match = cls.PATTERN.match(address)
         if match:
-            display_name, uri, packed_parameters = match.groups()
+            (
+                quoted_display_name,
+                unquoted_display_name,
+                uri,
+                packed_parameters,
+            ) = match.groups()
+            display_name = quoted_display_name or unquoted_display_name
+            sip_uri = SIPURI.from_uri(uri)
         else:
-            uri = address  # Hopefully.
+            sip_uri = SIPURI.from_uri(address)  # Hopefully.
             display_name, packed_parameters = None, None
         return cls(
             display_name=display_name,
-            sip_uri=SIPURI.from_uri(uri),
+            sip_uri=sip_uri,
             parameters={
                 parameter for parameter in packed_parameters.split(";") if parameter
             }
@@ -265,7 +274,7 @@ class SIP(abc.ABC):
                     "@id": state,
                     "status": {"basic": "open"},
                     "contact": {"@priority": "0.8", "#text": str(self.from_field)},
-                    "note": [settings.PAYMENT_WALLET, str(0.001)],
+                    "note": [self.get_config().PAYMENT_WALLET, str(0.001)],
                 },
             }
         }
@@ -353,6 +362,20 @@ class SIP(abc.ABC):
             or None,  # Does .getHeader return None if the key isn't found?
             **kwargs,
         )
+
+    @classmethod
+    def get_config(self) -> BaseConfig:
+        return settings
+
+    @classmethod
+    def inject_config(cls, config: BaseConfig) -> Type["SIP"]:
+        class InjectedSIP(cls):  # type: ignore
+            @classmethod
+            def get_config(self) -> BaseConfig:
+                return config
+
+        InjectedSIP.__name__ = f"Injected{cls.__name__}"
+        return InjectedSIP
 
 
 @attrs.define(auto_attribs=True, kw_only=True)
