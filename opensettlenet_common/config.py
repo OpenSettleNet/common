@@ -1,9 +1,14 @@
-from dynaconf import Dynaconf
+import os
 
-settings = Dynaconf(
-    envvar_prefix="FREESWITCH_PAYMENT_CLIENT",
-    settings_files=['settings.yaml', '.secrets.yaml'],
-)
+from pydantic import BaseConfig
 
-# `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
-# `settings_files` = Load these files in the order.
+
+class Settings(BaseConfig):
+    PAYMENT_WALLET: str
+
+    class Config:
+        env_prefix = "OPENSETTLENET_"
+        env_file = os.getenv("OPENSETTLENET_ENV_FILE", "opensettlenet.env")
+
+
+settings = Settings()

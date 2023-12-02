@@ -9,9 +9,9 @@ from typing import Callable, Dict, Optional, Set, Union
 
 import attrs
 import xmltodict
-from scapy.layers.inet import IP, UDP
-from scapy.packet import Raw
-from scapy.sendrecv import send
+from scapy.layers.inet import IP, UDP  # type: ignore
+from scapy.packet import Raw  # type: ignore
+from scapy.sendrecv import send  # type: ignore
 
 from opensettlenet_common import utils
 from opensettlenet_common.config import settings
@@ -38,8 +38,8 @@ class Header:
                     )
                 return return_value
 
-            _method._header_name = name
-            _method._header_priority = priority
+            _method._header_name = name  # type: ignore
+            _method._header_priority = priority  # type: ignore
             return _method
 
         return _header
@@ -52,11 +52,11 @@ class Header:
             if getattr(header, "_header_name", None)
         ]
         headers.sort(
-            key=lambda header: header._header_priority
-            if header._header_priority is not None
+            key=lambda header: header._header_priority  # type: ignore
+            if header._header_priority is not None  # type: ignore
             else float("inf")
         )
-        return {header._header_name: header() for header in headers}
+        return {header._header_name: header() for header in headers}  # type: ignore
 
     @classmethod
     def get_headers(cls, instance: object) -> Dict[str, str]:
@@ -81,8 +81,8 @@ class SIPURI:
     user: Optional[str] = None
     port: Optional[int] = attrs.field(
         default=5060,
-        validator=attrs.validators.optional(
-            attrs.validators.and_(attrs.validators.ge(0), attrs.validators.le(65535))
+        validator=attrs.validators.and_(
+            attrs.validators.ge(0), attrs.validators.le(65535)
         ),
     )
     parameters: Set[str] = attrs.field(factory=set)
@@ -118,7 +118,10 @@ class SIPURI:
 
     @classmethod
     def from_uri(cls, uri: str) -> "SIPURI":
-        (user, domain, port, packed_parameters) = cls.PATTERN.match(uri).groups()
+        match = cls.PATTERN.match(uri)
+        if match is None:
+            raise ValueError(f"SIP URI {uri!r} does not match pattern {cls.PATTERN}")
+        (user, domain, port, packed_parameters) = match.groups()
         return cls(
             domain=domain,
             user=user,
@@ -218,11 +221,8 @@ class SIP(abc.ABC):
 
     @Header.header("Content-Length")
     def content_length_header(self) -> Optional[str]:
-        return (
-            str(len(self.get_body().encode("utf-8")))
-            if self.get_body() is not None
-            else "0"
-        )
+        body = self.get_body()
+        return str(len(body.encode("utf-8"))) if body is not None else "0"
 
     @Header.header("Content-Type")
     def content_type_header(self) -> Optional[str]:
@@ -233,7 +233,7 @@ class SIP(abc.ABC):
         return f"{self.cseq} {self.method()}"
 
     @Header.header("Event")
-    def event_header(self) -> str:
+    def event_header(self) -> Optional[str]:
         return self.event
 
     @Header.header("From", priority=2)
@@ -354,30 +354,6 @@ class SIP(abc.ABC):
             **kwargs,
         )
 
-    @classmethod
-    def test(cls, **kwargs) -> "SIP":
-        return cls(
-            to_field=Address(
-                sip_uri=SIPURI(
-                    user="testcalls",
-                    domain="10.10.0.4",
-                    parameters={"UDP"},
-                ),
-            ),
-            from_field=Address(
-                sip_uri=SIPURI(
-                    user="0000000000",
-                    domain=utils.get_host_ip(),
-                    parameters={"UDP"},
-                )
-            ),
-            call_id="61f282ea-c77a-123b-10b4-02420a0a0003",
-            cseq="1",
-            max_forwards="10",
-            event="presence",
-            **kwargs,
-        )
-
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Subscribe(SIP):
@@ -396,10 +372,6 @@ class Subscribe(SIP):
     @Header.header("Expires")
     def expires_header(self) -> str:
         return self.expires
-
-    @classmethod
-    def test(cls) -> "SIP":
-        return super().test(expires="3600")
 
     @classmethod
     def from_event(
@@ -434,7 +406,7 @@ class Notify(SIP):
         return "NOTIFY"
 
     @Header.header("Subscription-State")
-    def subscription_state_header(self) -> str:
+    def subscription_state_header(self) -> Optional[str]:
         return self.subscription_state
 
     @Header.header("Expires")
@@ -443,7 +415,3 @@ class Notify(SIP):
 
     def get_body(self) -> Optional[str]:
         return super().get_body() or self.gen_pidf_xml()
-
-    @classmethod
-    def test(cls) -> "SIP":
-        return super().test(expires="3600")

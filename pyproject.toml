@@ -10,8 +10,12 @@ python = "^3.10"
 attrs = "^23.1.0"
 xmltodict = "^0.13.0"
 scapy = "^2.5.0"
-dynaconf = "^3.2.4"
+pydantic = {extras = ["dotenv"], version = "^2.5.2"}
 
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.7.1"
+types-xmltodict = "^0.13.0.3"
 
 [build-system]
 requires = ["poetry-core"]
