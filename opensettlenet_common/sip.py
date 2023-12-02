@@ -69,7 +69,7 @@ class Header:
         }
 
 
-@attrs.define(kw_only=True)
+@attrs.define(auto_attribs=True, kw_only=True)
 class SIPURI:
     PATTERN = re.compile(
         r"^(?:sip:)?"  # Optional "sip:" scheme
@@ -83,7 +83,7 @@ class SIPURI:
     user: Optional[str] = None
     port: Optional[int] = attrs.field(
         default=5060,
-        validator=attrs.validators.optional(
+        validator=attrs.validators.optional(  # type: ignore
             attrs.validators.and_(attrs.validators.ge(0), attrs.validators.le(65535))
         ),
     )

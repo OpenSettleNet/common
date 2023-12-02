@@ -1,4 +1,4 @@
-import validators
+import validators  # type: ignore
 
 
 def domain(instance, attribute, value):
