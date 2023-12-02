@@ -16,6 +16,8 @@ pydantic = {extras = ["dotenv"], version = "^2.5.2"}
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.7.1"
 types-xmltodict = "^0.13.0.3"
+pytest = "^7.4.3"
+pytest-mock = "^3.12.0"
 
 [build-system]
 requires = ["poetry-core"]
