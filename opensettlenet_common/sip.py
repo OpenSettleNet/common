@@ -207,10 +207,12 @@ class SIP(abc.ABC):
     call_id: str
     cseq: str
     max_forwards: str
+    accept: Optional[str] = None
     contact: str = "sip:biller@10.10.0.12:5060"
     content_type: Optional[str] = None
-    accept: Optional[str] = None
+    expires: Optional[str] = None
     event: Optional[str] = None
+    subscription_state: Optional[str] = None
 
     body: Optional[str] = None
 
@@ -253,6 +255,10 @@ class SIP(abc.ABC):
     def event_header(self) -> Optional[str]:
         return self.event
 
+    @Header.header("Expires", priority=7)
+    def expires_header(self) -> Optional[str]:
+        return self.expires
+
     @Header.header("From", priority=2)
     def from_header(self) -> str:
         return str(self.from_field)
@@ -260,6 +266,10 @@ class SIP(abc.ABC):
     @Header.header("Max-Forwards", priority=7)
     def max_forwards_header(self) -> str:
         return self.max_forwards
+
+    @Header.header("Subscription-State", priority=7)
+    def subscription_state_header(self) -> Optional[str]:
+        return self.subscription_state
 
     @Header.header("To", priority=1)
     def to_header(self) -> str:
@@ -389,21 +399,13 @@ class SIP(abc.ABC):
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Subscribe(SIP):
-    expires: str
+    accept: Optional[str] = "application/xml"
 
     def method(self) -> str:
         return "SUBSCRIBE"
 
     def get_body(self) -> Optional[str]:
         return None
-
-    @Header.header("Accept")
-    def accept_header(self) -> Optional[str]:
-        return "application/xml"
-
-    @Header.header("Expires")
-    def expires_header(self) -> str:
-        return self.expires
 
     @classmethod
     def from_event(
@@ -418,14 +420,11 @@ class Subscribe(SIP):
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Publish(SIP):
+    accept: str = "application/xml"
     content_type: str = "application/xml"
 
     def method(self) -> str:
         return "PUBLISH"
-
-    @Header.header("Accept")
-    def accept_header(self) -> Optional[str]:
-        return "application/xml"
 
     def get_body(self) -> Optional[str]:
         return super().get_body() or self.gen_pidf_xml()
@@ -433,20 +432,10 @@ class Publish(SIP):
 
 @attrs.define(auto_attribs=True)
 class Notify(SIP):
-    subscription_state: Optional[str] = None
-    expires: Optional[str] = None
     content_type: str = "application/xml"
 
     def method(self) -> str:
         return "NOTIFY"
-
-    @Header.header("Subscription-State")
-    def subscription_state_header(self) -> Optional[str]:
-        return self.subscription_state
-
-    @Header.header("Expires")
-    def expires_header(self) -> Optional[str]:
-        return self.expires
 
     def get_body(self) -> Optional[str]:
         return super().get_body() or self.gen_pidf_xml()
