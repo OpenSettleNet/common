@@ -23,7 +23,7 @@ echo 'eval "$(pyenv init -)"' >> ~/.zshrc
 ### Install Python 3.10
 ```commandline
 pyenv install 3.10
-pyenv local 3.10
+pyenv local 3.10  # Do this from your clone of the repository
 ```
 
 ### Install [`pipx`](https://github.com/pypa/pipx)
