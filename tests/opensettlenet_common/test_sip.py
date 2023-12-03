@@ -1,7 +1,6 @@
 import pytest
-from pydantic import BaseConfig
 
-from opensettlenet_common.sip import Notify, Publish, Subscribe, SIPURI, Address
+from opensettlenet_common.sip import Notify, Publish, Subscribe, SIPURI, Address, SIP
 
 
 class TestSIPURI:
@@ -91,11 +90,102 @@ class TestAddress:
         assert "uriparam=urivalue" in address.sip_uri.parameters
 
 
-def test_injection():
-    config = object()
-    injected_notify = Notify.inject_config(config)  # type: ignore
-    assert injected_notify.get_config() == config
-    injected_publish = Publish.inject_config(config)  # type: ignore
-    assert injected_publish.get_config() == config
-    injected_subscribe = Subscribe.inject_config(config)  # type: ignore
-    assert injected_subscribe.get_config() == config
+class TestSIP:
+    class SubclassedSIP(SIP):
+        def method(self) -> str:
+            return "METHOD"
+
+    def test_method(self):
+        # Pycharm's type inspection struggles with `attrs`
+        # noinspection PyTypeChecker
+        subclassed = self.SubclassedSIP(
+            to_field='"Linus Mixson" <sip:linus@opensettlenet.com>',
+            from_field='"Nigel Daniels" <sip:nigel@opensettlenet.com>',
+            call_id="4e8c8a35-3c35-4e24-a227-528ca2294f79",
+            cseq="1",
+            max_forwards="70",
+            contact="sip:admin@opensettlenet.com",
+        )
+
+        assert subclassed.method() == "METHOD"
+
+    def test_get_config(self, mocker):
+        config_mock = mocker.patch(
+            "opensettlenet_common.sip.settings"
+        )  # scoped to module
+        assert SIP.get_config() == config_mock
+        assert self.SubclassedSIP.get_config() == config_mock
+
+    def test_inject_config(self, mocker):
+        config_mock = mocker.MagicMock()
+        injected_subclass = self.SubclassedSIP.inject_config(config_mock)
+        assert injected_subclass.get_config() == config_mock
+
+    def test_format_headers(self):
+        # noinspection PyTypeChecker
+        subclassed = self.SubclassedSIP(
+            to_field='"Linus Mixson" <sip:linus@opensettlenet.com>',
+            from_field='"Nigel Daniels" <sip:nigel@opensettlenet.com>',
+            call_id="4e8c8a35-3c35-4e24-a227-528ca2294f79",
+            cseq="1",
+            max_forwards="70",
+            contact="sip:admin@opensettlenet.com",
+        )
+        assert subclassed.format_headers() == (
+            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
+            'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
+            "CSeq: 1 METHOD\r\n"
+            "Call-ID: 4e8c8a35-3c35-4e24-a227-528ca2294f79\r\n"
+            "Contact: sip:admin@opensettlenet.com\r\n"
+            "Max-Forwards: 70\r\n"
+            "Content-Length: 0\r\n"
+        )
+
+    def test_format_with_body(self):
+        # noinspection PyTypeChecker
+        subclassed = self.SubclassedSIP(
+            to_field='"Linus Mixson" <sip:linus@opensettlenet.com>',
+            from_field='"Nigel Daniels" <sip:nigel@opensettlenet.com>',
+            call_id="4e8c8a35-3c35-4e24-a227-528ca2294f79",
+            cseq="1",
+            max_forwards="70",
+            contact="sip:admin@opensettlenet.com",
+        )
+        assert subclassed.format() == (
+            "METHOD sip:linus@opensettlenet.com SIP/2.0\r\n"
+            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
+            'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
+            "CSeq: 1 METHOD\r\n"
+            "Call-ID: 4e8c8a35-3c35-4e24-a227-528ca2294f79\r\n"
+            "Contact: sip:admin@opensettlenet.com\r\n"
+            "Max-Forwards: 70\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        )
+
+    def test_format_without_body(self):
+        # noinspection PyTypeChecker
+        subclassed = self.SubclassedSIP(
+            to_field='"Linus Mixson" <sip:linus@opensettlenet.com>',
+            from_field='"Nigel Daniels" <sip:nigel@opensettlenet.com>',
+            call_id="4e8c8a35-3c35-4e24-a227-528ca2294f79",
+            cseq="1",
+            max_forwards="70",
+            contact="sip:admin@opensettlenet.com",
+            body="SIP BODY",
+        )
+        assert subclassed.format() == (
+            "METHOD sip:linus@opensettlenet.com SIP/2.0\r\n"
+            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
+            'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
+            "CSeq: 1 METHOD\r\n"
+            "Call-ID: 4e8c8a35-3c35-4e24-a227-528ca2294f79\r\n"
+            "Contact: sip:admin@opensettlenet.com\r\n"
+            "Max-Forwards: 70\r\n"
+            "Content-Length: 8\r\n"
+            "\r\n"
+            "SIP BODY"
+        )
