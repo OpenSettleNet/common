@@ -65,7 +65,7 @@ poetry run pre-commit install
 `pytest` will have been installed via Poetry, so just run `poetry run pytest`.
 
 ### Running mypy
-`poetry run mypy opensettlenet`
+`poetry run mypy opensettlenet_common/`
 
 ### Recommended post-install steps for PyCharm
 
