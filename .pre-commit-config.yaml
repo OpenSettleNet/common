@@ -5,3 +5,8 @@ repos:
       - id: black
         args: [--check, --diff]
         verbose: true
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [attrs]
