@@ -95,6 +95,12 @@ class TestSIP:
         def method(self) -> str:
             return "METHOD"
 
+        def get_src_ip(self) -> str:
+            return "127.0.0.1"
+
+        def get_src_port(self) -> int:
+            return 5060
+
     def test_method(self):
         # Pycharm's type inspection struggles with `attrs`
         # noinspection PyTypeChecker
@@ -132,7 +138,7 @@ class TestSIP:
             contact="sip:admin@opensettlenet.com",
         )
         assert subclassed.format_headers() == (
-            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            "Via: SIP/2.0/UDP 127.0.0.1:5060\r\n"
             'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
             'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
             "CSeq: 1 METHOD\r\n"
@@ -154,7 +160,7 @@ class TestSIP:
         )
         assert subclassed.format() == (
             "METHOD sip:linus@opensettlenet.com SIP/2.0\r\n"
-            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            "Via: SIP/2.0/UDP 127.0.0.1:5060\r\n"
             'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
             'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
             "CSeq: 1 METHOD\r\n"
@@ -178,7 +184,7 @@ class TestSIP:
         )
         assert subclassed.format() == (
             "METHOD sip:linus@opensettlenet.com SIP/2.0\r\n"
-            "Via: SIP/2.0/UDP 192.168.187.153:5060\r\n"
+            "Via: SIP/2.0/UDP 127.0.0.1:5060\r\n"
             'To: "Linus Mixson" <sip:linus@opensettlenet.com>\r\n'
             'From: "Nigel Daniels" <sip:nigel@opensettlenet.com>\r\n'
             "CSeq: 1 METHOD\r\n"
