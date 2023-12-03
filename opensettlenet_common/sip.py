@@ -5,7 +5,7 @@ import re
 import secrets
 import socket
 import urllib.parse
-from typing import Callable, Dict, Optional, Set, Union, Type
+from typing import Callable, Dict, Optional, Set, Union, Type, Iterable
 
 import attrs
 import xmltodict
@@ -119,7 +119,9 @@ class SIPURI:
         self.parameters.add(parameter)
 
     @classmethod
-    def from_uri(cls, uri: str) -> "SIPURI":
+    def from_uri(
+        cls, uri: str, additional_parameters: Optional[Iterable[str]] = None
+    ) -> "SIPURI":
         match = cls.PATTERN.match(uri)
         if match is None:
             raise ValueError(f"SIP URI {uri!r} does not match pattern {cls.PATTERN}")
@@ -131,6 +133,11 @@ class SIPURI:
             parameters={
                 parameter for parameter in packed_parameters.split(";") if parameter
             }
+            | (
+                set(additional_parameters)
+                if additional_parameters is not None
+                else set()
+            )
             if packed_parameters
             else set(),
         )
@@ -344,8 +351,9 @@ class SIP(abc.ABC):
     def from_event(
         cls, event, call_id_override: Optional[str] = None, **kwargs
     ) -> "SIP":
-        to_uri = SIPURI.from_uri(event.getHeader("variable_sip_to_uri"))
-        to_uri.add_parameter("UDP")
+        to_uri = SIPURI.from_uri(
+            event.getHeader("variable_sip_to_uri"), additional_parameters=["UDP"]
+        )
         from_uri = SIPURI(
             user=event.getHeader("variable_sip_from_user"),
             domain=utils.get_host_ip(),
@@ -355,7 +363,7 @@ class SIP(abc.ABC):
         return cls(
             cseq="1",
             call_id=call_id_override or event.getHeader("variable_sip_call_id"),
-            max_forwards="1",
+            max_forwards="70",
             event="presence",
             from_field=Address(sip_uri=from_uri),
             to_field=Address(sip_uri=to_uri),
