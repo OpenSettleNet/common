@@ -4,7 +4,7 @@ from pydantic import BaseConfig
 
 
 class Settings(BaseConfig):
-    PAYMENT_WALLET: str
+    payment_wallet: str
 
     class Config:
         env_prefix = "OPENSETTLENET_"

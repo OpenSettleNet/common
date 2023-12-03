@@ -292,7 +292,7 @@ class SIP(abc.ABC):
                     "@id": state,
                     "status": {"basic": "open"},
                     "contact": {"@priority": "0.8", "#text": str(self.from_field)},
-                    "note": [self.get_config().PAYMENT_WALLET, str(0.001)],
+                    "note": [self.get_config().payment_wallet, str(0.001)],
                 },
             }
         }
