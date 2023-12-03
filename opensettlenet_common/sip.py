@@ -16,7 +16,7 @@ from scapy.sendrecv import send  # type: ignore
 
 import opensettlenet_common.validators
 from opensettlenet_common import utils
-from opensettlenet_common.config import settings
+from opensettlenet_common.config import Settings
 
 
 class Header:
@@ -384,7 +384,7 @@ class SIP(abc.ABC):
 
     @classmethod
     def get_config(self) -> BaseSettings:
-        return settings
+        return Settings.get_settings()
 
     @classmethod
     def inject_config(cls, config: BaseSettings) -> Type["SIP"]:

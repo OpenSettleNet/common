@@ -3,6 +3,11 @@ import pytest
 from opensettlenet_common.sip import Notify, Publish, Subscribe, SIPURI, Address, SIP
 
 
+@pytest.fixture(autouse=True)
+def patch_settings(mocker):
+    return mocker.patch("opensettlenet_common.config.Settings.get_settings")
+
+
 class TestSIPURI:
     valid_uri = "sip:user@domain.com:5060;param1=value1;param2=value2"
     valid_uri_no_user = "sip:domain.com:5060;param1=value1;param2=value2"
@@ -117,10 +122,10 @@ class TestSIP:
 
     def test_get_config(self, mocker):
         config_mock = mocker.patch(
-            "opensettlenet_common.sip.settings"
+            "opensettlenet_common.sip.Settings"
         )  # scoped to module
-        assert SIP.get_config() == config_mock
-        assert self.SubclassedSIP.get_config() == config_mock
+        assert SIP.get_config() == config_mock.get_settings.return_value
+        assert self.SubclassedSIP.get_config() == config_mock.get_settings.return_value
 
     def test_inject_config(self, mocker):
         config_mock = mocker.MagicMock()
