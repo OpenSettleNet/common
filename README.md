@@ -2,6 +2,7 @@
 
 ## Installation
 Using `pip`: `$ pip install git+https://github.com/OpenSettleNet/common.git`
+
 Using `poetry`: `$ poetry add git+https://github.com/OpenSettleNet/common.git`
 
 ## Development
