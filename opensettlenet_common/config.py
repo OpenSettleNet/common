@@ -1,14 +1,13 @@
 import os
 
-from pydantic import BaseConfig
+from pydantic_settings import BaseSettings
 
 
-class Settings(BaseConfig):
+class Settings(BaseSettings):
     payment_wallet: str
 
-    class Config:
-        env_prefix = "OPENSETTLENET_"
-        env_file = os.getenv("OPENSETTLENET_ENV_FILE", "opensettlenet.env")
 
-
-settings = Settings()
+settings = Settings(
+    _env_prefix="OPENSETTLENET_",
+    _env_file=os.getenv("OPENSETTLENET_ENV_FILE", "opensettlenet.env"),
+)
