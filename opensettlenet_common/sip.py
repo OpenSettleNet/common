@@ -21,7 +21,7 @@ from opensettlenet_common.config import settings
 
 class Header:
     @staticmethod
-    def header(name: str, priority: Optional[int] = None) -> Callable:
+    def header(name: str, priority: Optional[Union[int, float]] = None) -> Callable:
         def _header(method: Callable) -> Callable:
             method_returns = inspect.signature(method).return_annotation
             if method_returns != str and method_returns != Optional[str]:
@@ -201,6 +201,7 @@ class SIP(abc.ABC):
     cseq: str
     max_forwards: str
     contact: str = "sip:biller@10.10.0.12:5060"
+    content_type: Optional[str] = None
     accept: Optional[str] = None
     event: Optional[str] = None
 
@@ -224,18 +225,18 @@ class SIP(abc.ABC):
     def call_id_header(self) -> str:
         return self.call_id
 
-    @Header.header("Contact")
+    @Header.header("Contact", priority=5)
     def contact_header(self) -> str:
         return self.contact
 
-    @Header.header("Content-Length")
+    @Header.header("Content-Length", priority=float("inf"))
     def content_length_header(self) -> Optional[str]:
         body = self.get_body()
         return str(len(body.encode("utf-8"))) if body is not None else "0"
 
-    @Header.header("Content-Type")
+    @Header.header("Content-Type", priority=6)
     def content_type_header(self) -> Optional[str]:
-        return "application/xml" if self.body is not None else None
+        return self.content_type if self.body is not None else None
 
     @Header.header("CSeq", priority=3)
     def cseq_header(self) -> str:
@@ -249,7 +250,7 @@ class SIP(abc.ABC):
     def from_header(self) -> str:
         return str(self.from_field)
 
-    @Header.header("Max-Forwards")
+    @Header.header("Max-Forwards", priority=7)
     def max_forwards_header(self) -> str:
         return self.max_forwards
 
@@ -287,8 +288,8 @@ class SIP(abc.ABC):
         return Header.get_headers(self)
 
     def format_headers(self) -> str:
-        return "\r\n".join(
-            f"{key}: {value}" for key, value in self.get_headers().items()
+        return "".join(
+            f"{key}: {value}\r\n" for key, value in self.get_headers().items()
         )
 
     def get_start_line(self) -> str:
@@ -299,9 +300,9 @@ class SIP(abc.ABC):
         headers = self.format_headers()
         body = self.get_body()
         if body is not None:
-            return f"{start_line}\r\n{headers}\r\n\r\n{body}"
+            return f"{start_line}\r\n{headers}\r\n{body}"
         else:
-            return f"{start_line}\r\n{headers}\r\n\r\n"
+            return f"{start_line}\r\n{headers}\r\n"
 
     def get_host_ip(self) -> str:
         return utils.get_host_ip()
@@ -409,6 +410,8 @@ class Subscribe(SIP):
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Publish(SIP):
+    content_type: str = "application/xml"
+
     def method(self) -> str:
         return "PUBLISH"
 
@@ -424,6 +427,7 @@ class Publish(SIP):
 class Notify(SIP):
     subscription_state: Optional[str] = None
     expires: Optional[str] = None
+    content_type: str = "application/xml"
 
     def method(self) -> str:
         return "NOTIFY"
