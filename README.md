@@ -72,3 +72,9 @@ poetry run pre-commit install
 Make sure that PyCharm is configured to use the project's Poetry environment.
 
 Install the `Mypy` and `BlackConnect` PyCharm plugins, and configure `BlackConnect` to run on save.
+
+### Adding / removing dependencies
+
+To add (or update) a dependency: `poetry add <dependency>`, where `<dependency>` is some sort of [dependency specifier](https://python-poetry.org/docs/dependency-specification/) (like `attrs`, `attrs@23.1.0`, `attrs@^23.0.0`).
+
+To remove a dependency: `poetry remove <dependency>`.
