@@ -9,14 +9,14 @@ from typing import Callable, Dict, Optional, Set, Union, Type, Iterable
 
 import attrs
 import xmltodict
-from pydantic import BaseConfig
+from pydantic_settings import BaseSettings
 from scapy.layers.inet import IP, UDP  # type: ignore
 from scapy.packet import Raw  # type: ignore
 from scapy.sendrecv import send  # type: ignore
 
 import opensettlenet_common.validators
 from opensettlenet_common import utils
-from opensettlenet_common.config import settings
+from opensettlenet_common.config import Settings
 
 
 class Header:
@@ -383,14 +383,14 @@ class SIP(abc.ABC):
         )
 
     @classmethod
-    def get_config(self) -> BaseConfig:
-        return settings
+    def get_config(self) -> BaseSettings:
+        return Settings.get_settings()
 
     @classmethod
-    def inject_config(cls, config: BaseConfig) -> Type["SIP"]:
+    def inject_config(cls, config: BaseSettings) -> Type["SIP"]:
         class InjectedSIP(cls):  # type: ignore
             @classmethod
-            def get_config(self) -> BaseConfig:
+            def get_config(self) -> BaseSettings:
                 return config
 
         InjectedSIP.__name__ = f"Injected{cls.__name__}"
