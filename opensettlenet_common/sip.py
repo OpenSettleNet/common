@@ -8,15 +8,12 @@ import urllib.parse
 from typing import Callable, Dict, Optional, Set, Union, Type, Iterable
 
 import attrs
-import xmltodict
-from pydantic_settings import BaseSettings
 from scapy.layers.inet import IP, UDP  # type: ignore
 from scapy.packet import Raw  # type: ignore
 from scapy.sendrecv import send  # type: ignore
 
 import opensettlenet_common.validators
 from opensettlenet_common import utils
-from opensettlenet_common.config import Settings
 
 
 class Header:
@@ -283,21 +280,6 @@ class SIP(abc.ABC):
     def via_header(self) -> str:
         return f"SIP/2.0/{self.transport_protocol} {self.get_src_ip()}:{self.get_src_port()}"
 
-    def gen_pidf_xml(self, state="unpaid"):
-        pidf = {
-            "presence": {
-                "@xmlns": "urn:ietf:params:xml:ns:pidf",
-                "@entity": self.from_field,
-                "tuple": {
-                    "@id": state,
-                    "status": {"basic": "open"},
-                    "contact": {"@priority": "0.8", "#text": str(self.from_field)},
-                    "note": [self.get_config().payment_wallet, str(0.001)],
-                },
-            }
-        }
-        return xmltodict.unparse(pidf, pretty=True)
-
     def get_body(self) -> Optional[str]:
         return self.body
 
@@ -382,20 +364,6 @@ class SIP(abc.ABC):
             **kwargs,
         )
 
-    @classmethod
-    def get_config(self) -> BaseSettings:
-        return Settings.get_settings()
-
-    @classmethod
-    def inject_config(cls, config: BaseSettings) -> Type["SIP"]:
-        class InjectedSIP(cls):  # type: ignore
-            @classmethod
-            def get_config(self) -> BaseSettings:
-                return config
-
-        InjectedSIP.__name__ = f"Injected{cls.__name__}"
-        return InjectedSIP
-
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Subscribe(SIP):
@@ -405,7 +373,7 @@ class Subscribe(SIP):
         return "SUBSCRIBE"
 
     def get_body(self) -> Optional[str]:
-        return None
+        return None  # SUBSCRIBE can't have a body
 
     @classmethod
     def from_event(
@@ -426,9 +394,6 @@ class Publish(SIP):
     def method(self) -> str:
         return "PUBLISH"
 
-    def get_body(self) -> Optional[str]:
-        return super().get_body() or self.gen_pidf_xml()
-
 
 @attrs.define(auto_attribs=True)
 class Notify(SIP):
@@ -436,6 +401,3 @@ class Notify(SIP):
 
     def method(self) -> str:
         return "NOTIFY"
-
-    def get_body(self) -> Optional[str]:
-        return super().get_body() or self.gen_pidf_xml()
