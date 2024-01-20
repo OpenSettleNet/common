@@ -1,11 +1,6 @@
 import pytest
 
-from opensettlenet_common.sip import Notify, Publish, Subscribe, SIPURI, Address, SIP
-
-
-@pytest.fixture(autouse=True)
-def patch_settings(mocker):
-    return mocker.patch("opensettlenet_common.config.Settings.get_settings")
+from opensettlenet_common.sip import SIPURI, Address, SIP
 
 
 class TestSIPURI:
