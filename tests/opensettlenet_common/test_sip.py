@@ -1,11 +1,6 @@
 import pytest
 
-from opensettlenet_common.sip import Notify, Publish, Subscribe, SIPURI, Address, SIP
-
-
-@pytest.fixture(autouse=True)
-def patch_settings(mocker):
-    return mocker.patch("opensettlenet_common.config.Settings.get_settings")
+from opensettlenet_common.sip import SIPURI, Address, SIP
 
 
 class TestSIPURI:
@@ -119,18 +114,6 @@ class TestSIP:
         )
 
         assert subclassed.method() == "METHOD"
-
-    def test_get_config(self, mocker):
-        config_mock = mocker.patch(
-            "opensettlenet_common.sip.Settings"
-        )  # scoped to module
-        assert SIP.get_config() == config_mock.get_settings.return_value
-        assert self.SubclassedSIP.get_config() == config_mock.get_settings.return_value
-
-    def test_inject_config(self, mocker):
-        config_mock = mocker.MagicMock()
-        injected_subclass = self.SubclassedSIP.inject_config(config_mock)
-        assert injected_subclass.get_config() == config_mock
 
     def test_format_headers(self):
         # noinspection PyTypeChecker
