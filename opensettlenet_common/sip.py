@@ -339,31 +339,6 @@ class SIP(abc.ABC):
         self.cseq = str(new_cseq)
         return new_cseq
 
-    @classmethod
-    def from_event(
-        cls, event, call_id_override: Optional[str] = None, **kwargs
-    ) -> "SIP":
-        to_uri = SIPURI.from_uri(
-            event.getHeader("variable_sip_to_uri"), additional_parameters=["UDP"]
-        )
-        from_uri = SIPURI(
-            user=event.getHeader("variable_sip_from_user"),
-            domain=utils.get_host_ip(),
-            parameters={"UDP"},
-        )
-
-        return cls(
-            cseq="1",
-            call_id=call_id_override or event.getHeader("variable_sip_call_id"),
-            max_forwards="70",
-            event="presence",
-            from_field=Address(sip_uri=from_uri),
-            to_field=Address(sip_uri=to_uri),
-            src_ip=event.getHeader("FreeSWITCH-IPv4")
-            or None,  # Does .getHeader return None if the key isn't found?
-            **kwargs,
-        )
-
 
 @attrs.define(auto_attribs=True, kw_only=True)
 class Subscribe(SIP):
@@ -374,16 +349,6 @@ class Subscribe(SIP):
 
     def get_body(self) -> Optional[str]:
         return None  # SUBSCRIBE can't have a body
-
-    @classmethod
-    def from_event(
-        cls, event, call_id_override: Optional[str] = None, **kwargs
-    ) -> "SIP":
-        subscribe = super().from_event(
-            event, call_id_override, expires="3600", **kwargs
-        )
-        subscribe.from_field.add_parameter("tag=1234")  # despise this
-        return subscribe
 
 
 @attrs.define(auto_attribs=True, kw_only=True)
