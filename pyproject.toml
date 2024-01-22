@@ -29,7 +29,3 @@ build-backend = "poetry.core.masonry.api"
 pythonpath = [
   "."
 ]
-
-[tool.mypy]
-plugins = [ "pydantic.mypy" ]
-
